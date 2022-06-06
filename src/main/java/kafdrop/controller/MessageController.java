@@ -102,14 +102,14 @@ public final class MessageController {
           getDeserializer(topicName, defaultKeyFormat, "", ""),
           getDeserializer(topicName, defaultFormat, "", ""));
 
-    final List<MessageVO> messages = messageInspector.getMessages(topicName, size, deserializers);
+    final List<MessageVO> messages = messageInspector.getMessages(topicName, size, deserializers, true);
 
     for (TopicPartitionVO partition : topic.getPartitions()) {
       messages.addAll(messageInspector.getMessages(topicName,
           partition.getId(),
           partition.getFirstOffset(),
           size,
-          deserializers));
+          deserializers, true));
     }
 
     messages.sort(Comparator.comparing(MessageVO::getTimestamp));
@@ -134,21 +134,25 @@ public final class MessageController {
     final MessageFormat defaultFormat = messageFormatProperties.getFormat();
     final MessageFormat defaultKeyFormat = keyFormatProperties.getFormat();
 
+    final TopicVO topic = kafkaMonitor.getTopic(topicName)
+        .orElseThrow(() -> new TopicNotFoundException(topicName));
+    model.addAttribute("topic", topic);
+
     if (messageForm.isEmpty()) {
       final PartitionOffsetInfo defaultForm = new PartitionOffsetInfo();
 
-      defaultForm.setCount(100l);
-      defaultForm.setOffset(0l);
-      defaultForm.setPartition(0);
+      TopicPartitionVO partition = new ArrayList<>(topic.getPartitions()).get(0);
+
+      long expectMsgCount = 50L;
+      defaultForm.setCount(expectMsgCount);
+      defaultForm.setOffset(partition.getSize() - expectMsgCount);
+      defaultForm.setPartition(partition.getId());
       defaultForm.setFormat(defaultFormat);
       defaultForm.setKeyFormat(defaultFormat);
 
       model.addAttribute("messageForm", defaultForm);
     }
 
-    final TopicVO topic = kafkaMonitor.getTopic(topicName)
-        .orElseThrow(() -> new TopicNotFoundException(topicName));
-    model.addAttribute("topic", topic);
     // pre-select a descriptor file for a specific topic if available
     model.addAttribute("defaultDescFile", protobufProperties.getDescFilesList().stream()
         .filter(descFile -> descFile.replace(".desc", "").equals(topicName)).findFirst().orElse(""));
@@ -171,7 +175,7 @@ public final class MessageController {
                                                       messageForm.getPartition(),
                                                       messageForm.getOffset(),
                                                       messageForm.getCount().intValue(),
-                                                      deserializers));
+                                                      deserializers, true));
 
     }
 
@@ -243,7 +247,7 @@ public final class MessageController {
           partition,
           offset,
           count,
-          deserializers);
+          deserializers, true);
 
       if (vos != null) {
         messages.addAll(vos);

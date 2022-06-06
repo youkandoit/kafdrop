@@ -37,16 +37,24 @@ public final class MessageInspector {
    * Gets messages for a given partition.
    */
   public List<MessageVO> getMessages(String topicName, int partitionId, long offset, int count,
-                                     Deserializers deserializers) {
+                                     Deserializers deserializers, boolean orderByOffsetDesc) {
     final var topicPartition = new TopicPartition(topicName, partitionId);
-    return kafkaMonitor.getMessages(topicPartition, offset, count, deserializers);
+    List<MessageVO> messages = kafkaMonitor.getMessages(topicPartition, offset, count, deserializers);
+    if (orderByOffsetDesc) {
+      messages.sort((m1, m2) -> (int) (m2.getOffset() - m1.getOffset()));
+    }
+    return messages;
   }
 
   /**
    * Gets all messages from all partitions of a given topic.
    */
   public List<MessageVO> getMessages(String topicName, int count,
-                                     Deserializers deserializers) {
-    return kafkaMonitor.getMessages(topicName, count, deserializers);
+                                     Deserializers deserializers, boolean orderByOffsetDesc) {
+    List<MessageVO> messages = kafkaMonitor.getMessages(topicName, count, deserializers);
+    if (orderByOffsetDesc) {
+      messages.sort((m1, m2) -> (int) (m2.getOffset() - m1.getOffset()));
+    }
+    return messages;
   }
 }
